@@ -1,0 +1,45 @@
+{
+    "actions": [
+        {
+            "name": "Open YouTube",
+            "type": "newtab",
+            "url": "https://www.youtube.com"
+        },
+        {
+            "name": "Wait for page load",
+            "type": "wait",
+            "value": "2000"
+        },
+        {
+            "name": "Search for Veritasium",
+            "type": "input",
+            "selector": "input#search",
+            "value": "Veritasium"
+        },
+        {
+            "name": "Click search button",
+            "type": "click",
+            "selector": "button#search-icon-legacy"
+        },
+        {
+            "name": "Wait for results",
+            "type": "wait",
+            "value": "2000"
+        },
+        {
+            "name": "Click first video",
+            "type": "click",
+            "selector": "ytd-video-renderer:first-child a#thumbnail"
+        },
+        {
+            "name": "Wait for video to load",
+            "type": "wait",
+            "value": "3000"
+        },
+        {
+            "name": "Like the video",
+            "type": "click",
+            "selector": "ytd-menu-renderer button[aria-label*='like this']"
+        }
+    ]
+}

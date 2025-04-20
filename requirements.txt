@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+python-multipart
+starlette
+typing-extensions
+beautifulsoup4 
+lxml
+requests
+playwright
