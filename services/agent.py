@@ -78,6 +78,17 @@ def agent(question: str, thread_id: str = "user_thread_1") -> Dict[str, Any]:
         traceback.print_exc()
         error_message = f"Agent execution failed: {e}"
 
+        # Check if we have partial plan_steps that we can use
+        if plan_steps:
+            print(
+                f"Found {len(plan_steps)} plan steps despite the error, will return partial plan")
+            try:
+                # Create a partial plan JSON since execution failed but we have steps
+                partial_plan_json = json.dumps(plan_steps, indent=2)
+                final_answer_content = f"FINAL_PLAN_JSON:\n{partial_plan_json}"
+            except Exception as json_err:
+                print(f"Failed to create partial plan JSON: {json_err}")
+
     execution_time = time.time() - start_time
     print(
         f"\n========= Agent Execution Finished ({execution_time:.2f}s) =========\n")
@@ -133,21 +144,54 @@ def agent(question: str, thread_id: str = "user_thread_1") -> Dict[str, Any]:
                         status = "Error: Invalid plan structure from fallback"
                         error_message = "Agent produced invalid plan structure"
                 else:
-                    error_message = f"Agent finished but failed to produce valid JSON after fallback: {json_err}"
-                    status = "Error: Invalid JSON Output"
+                    # Check if we have plan_steps available even though JSON extraction failed
+                    if plan_steps:
+                        print("Using collected plan_steps as fallback")
+                        plan_json = {"plan": plan_steps}
+                        status = "Partial Plan Generated (Recovered from Execution Error)"
+                        error_message = f"Agent failed with error, but partial plan recovered: {json_err}"
+                    else:
+                        error_message = f"Agent finished but failed to produce valid JSON after fallback: {json_err}"
+                        status = "Error: Invalid JSON Output"
             except Exception as fallback_error:
-                error_message = f"Agent finished but failed to produce valid JSON: {json_err}"
-                status = "Error: Invalid JSON Output"
+                # Last-resort recovery using plan_steps
+                if plan_steps:
+                    print("Using collected plan_steps as last resort recovery")
+                    plan_json = {"plan": plan_steps}
+                    status = "Partial Plan Generated (Last Resort Recovery)"
+                    error_message = f"Agent failed with error, but partial plan recovered: {fallback_error}"
+                else:
+                    error_message = f"Agent finished but failed to produce valid JSON: {json_err}"
+                    status = "Error: Invalid JSON Output"
         except Exception as e:
             print(f"Unexpected error processing final output: {e}")
-            error_message = f"Unexpected error processing final output: {e}"
-            status = "Error: Processing Failed"
+            # Last-resort recovery using plan_steps
+            if plan_steps:
+                print("Using collected plan_steps after unexpected error")
+                plan_json = {"plan": plan_steps}
+                status = "Partial Plan Generated (Error Recovery)"
+                error_message = f"Unexpected error, but partial plan recovered: {e}"
+            else:
+                error_message = f"Unexpected error processing final output: {e}"
+                status = "Error: Processing Failed"
 
     elif error_message:
-        status = error_message
+        # If we have an error but also have plan steps, create a plan from the steps
+        if plan_steps:
+            print("Using collected plan_steps for error case")
+            plan_json = {"plan": plan_steps}
+            status = "Partial Plan Generated (Error Recovery)"
+        else:
+            status = error_message
     else:
-        status = "Error: Agent finished without generating a final plan."
-        print(status)
+        # No error message but also no final content - check for plan steps
+        if plan_steps:
+            print("Using collected plan_steps for empty result case")
+            plan_json = {"plan": plan_steps}
+            status = "Partial Plan Generated (Empty Result Recovery)"
+        else:
+            status = "Error: Agent finished without generating a final plan."
+            print(status)
 
     return {
         "status": status,

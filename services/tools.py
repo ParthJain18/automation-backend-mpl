@@ -426,17 +426,38 @@ def get_user_preference(query: str) -> str:
     print(f"Tool: get_user_preference called with query: '{query}'")
 
     try:
-        rag_endpoint = "http://localhost:5001/api/preferences/query"
+        rag_endpoint = "https://prepared-tightly-mastiff.ngrok-free.app/user-query"
 
-        response = requests.post(
-            rag_endpoint,
-            json={"query": query},
-            timeout=10
-        )
+        try:
+            response = requests.post(
+                rag_endpoint,
+                json={"query": query},
+                timeout=10
+            )
+            response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Error connecting to user preference service: {e}"
+            print(error_msg)
+            return error_msg
 
         if response.status_code == 200:
-            result = response.json().get("response", "No information found")
-            print(f"Tool: get_user_preference returned: '{result[:100]}...'")
+            # Extract just the text response, ignoring any sources or screenshots
+            response_data = response.json()
+
+            # If the response is a tuple/list containing both response and sources
+            if isinstance(response_data.get("response"), (list, tuple)) and len(response_data.get("response")) >= 1:
+                # Get just the first item (text response) and ignore sources with screenshots
+                result = response_data["response"][0]
+            else:
+                # Otherwise just get the response directly
+                result = response_data.get("response", "No information found")
+
+            # Ensure we're only returning text
+            if isinstance(result, dict) and "sources" in result:
+                # If the response is a dict with sources, extract just the text part
+                result = result.get("text", str(result))
+
+            print(f"Tool: get_user_preference returned: '{result}'")
             return str(result)
         else:
             error_msg = f"Error: Failed to retrieve user preferences. Status code: {response.status_code}"
@@ -449,4 +470,5 @@ def get_user_preference(query: str) -> str:
         return error_msg
 
 
-tools = [view_rendered_page, find_element_selector_llm, add_action_step, finalize_plan, get_user_preference]
+tools = [view_rendered_page, find_element_selector_llm,
+         add_action_step, finalize_plan, get_user_preference]
